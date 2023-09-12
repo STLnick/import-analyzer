@@ -64,20 +64,17 @@ func main() {
 		}
 	}
 
-	fmt.Println("Paths:")
-
 	occurrences := make(map[string]int)
-
+	var longest int
 	for _, p := range paths {
-		_, ok := occurrences[p]
-		if !ok {
-			occurrences[p] = 0
-		}
 		occurrences[p] += 1
+		if len(p) > longest {
+			longest = len(p)
+		}
 	}
 
 	fmt.Println("Occurrences:")
 	for k, v := range occurrences {
-		fmt.Printf("[%s]: %d\n", k, v)
+		fmt.Printf("  %-*s%d\n", longest+4, k, v)
 	}
 }
