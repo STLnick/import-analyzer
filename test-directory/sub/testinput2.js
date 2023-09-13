@@ -1,4 +1,4 @@
-import { test } from '@/utils/test';
+mport { test } from '@/utils/test';
 
 let arr = [];
 

@@ -1,5 +1,5 @@
-import { test } from '@/utils/test';
-import { other } from '@/stuff/thing/other';
+mport { test } from '@/utils/test.js';
+import { other } from '@/stuff/thing/other.js';
 
 let arr = [];
 

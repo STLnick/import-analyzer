@@ -1,7 +1,7 @@
-import { test } from '@/utils/testBar';
-import { other } from '@/stuff/thing/otherFoo';
-import Thing from '@/classes/thingTwo';
-import ChildThing from '@/classes/nested/childThing';
+mport { test } from '@/utils/testBar.js';
+import { other } from '@/stuff/thing/otherFoo.js';
+mport Thing from '@/classes/thingTwo.js';
+mport ChildThing from '@/classes/nested/childThing.js';
 
 let arr = [];
 

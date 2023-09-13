@@ -1,6 +1,6 @@
-import { test } from '@/utils/other-test';
-import { other } from '@/stuff/thingTwo/other';
-import Thing from '@/classes/thingTwo';
+mport { test } from '@/utils/other-test.js';
+import { other } from '@/stuff/thingee/other.js';
+mport Thing from '@/classes/thingTwo.js';
 
 let arr = [];
 
