@@ -92,7 +92,7 @@ func processStatementAsImportNode(tree []ImportNode, s string) []ImportNode {
 	return tree
 }
 
-func sortChildren(node ImportNode, listMap *[]ImportResult) {
+func addToMap(node ImportNode, listMap *[]ImportResult) {
     var idx int
 
     for _, child := range *(node.children) {
@@ -108,7 +108,7 @@ func sortChildren(node ImportNode, listMap *[]ImportResult) {
         }
        
         if len(*(child.children)) > 0 {
-            sortChildren(child, listMap)
+            addToMap(child, listMap)
         }
     }
 }
@@ -122,8 +122,17 @@ func sortByHighestOccurrences(tree []ImportNode) []ImportResult {
             paths: &[]string{root.path},
         }
         listMap = append(listMap, rootRes)
-        sortChildren(root, &listMap)
+        addToMap(root, &listMap)
     }
+
+    slices.SortFunc(listMap, func(a ImportResult, b ImportResult) int {
+        if a.count > b.count {
+            return -1
+        } else if a.count == b.count {
+            return 0
+        }
+        return 1
+    })
 
     return listMap
 }
@@ -142,9 +151,12 @@ func main() {
 		tree = processStatementAsImportNode(tree, line)
 	}
 
-    resultMap := sortByHighestOccurrences(tree)
-    fmt.Println("Result Map:")
-    for _, v := range resultMap {
-        fmt.Printf(" :: count=%d paths=(%v)\n", v.count, *(v.paths))
+    sortedResults := sortByHighestOccurrences(tree)
+    header := "  # of imports  -  paths  "
+    fmt.Printf("%s\n", strings.Repeat("-", len(header)))
+    fmt.Printf("%s\n", header)
+    fmt.Printf("%s\n", strings.Repeat("-", len(header)))
+    for _, v := range sortedResults {
+        fmt.Printf("%9d%8s  %v\n", v.count, "-", v.paths)
     }
 }
