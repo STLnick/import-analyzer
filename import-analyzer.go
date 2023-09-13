@@ -2,79 +2,149 @@ package main
 
 import (
 	"bufio"
-	"flag"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
-	"unicode"
+
+	"github.com/STLnick/import-analyzer/utils"
 )
 
-func getImportPath(stm string) string {
-	var path string
-
-	fields := strings.Fields(stm)
-	for i, f := range fields {
-		if f == "from" {
-			path = fields[i+1]
-		}
-	}
-
-	if path == "" {
-		return path
-	}
-
-	var found bool
-	var r rune
-	start := 0
-	for !found && start < len(path) {
-		r = rune(path[start])
-		if !unicode.IsSpace(r) && r != '\'' && r != '"' {
-			found = true
-		} else {
-			start++
-		}
-	}
-
-	return path[start : strings.LastIndex(path, "/")+1]
+type ImportNode struct {
+	path        string
+	isNode      bool
+	occurrences int
+	children    *[]ImportNode
 }
 
-func processStatement(paths *[]string, s string) {
-	if strings.Contains(s, "import") {
-		p := getImportPath(s)
-		if p != "" {
-			*paths = append(*paths, p)
+func (ig *ImportNode) Print(depth int) {
+	pad := strings.Repeat(" ", depth)
+
+	fmt.Printf("%s{\n", pad)
+	fmt.Printf("%s  path: %s\n", pad, ig.path)
+	fmt.Printf("%s  isNode: %v\n", pad, ig.isNode)
+	fmt.Printf("%s  occurrences: %d\n", pad, ig.occurrences)
+	fmt.Printf("%s  children:\n", pad)
+	for _, child := range *(ig.children) {
+		child.Print(depth + 2)
+	}
+	fmt.Printf("%s}\n", pad)
+}
+
+func NewImportNode(path string, occurrences int, isNode bool) ImportNode {
+	slice := make([]ImportNode, 0, 3)
+	return ImportNode{
+		path:        path,
+		occurrences: occurrences,
+		isNode:      isNode,
+		children:    &slice,
+	}
+}
+
+type ImportResult struct {
+    count int
+    paths *[]string
+}
+
+func processStatementAsImportNode(tree []ImportNode, s string) []ImportNode {
+	if !strings.Contains(s, "import") {
+		return tree
+	}
+
+	var currentGroup *ImportNode
+	var workingPath string
+	var isLastChunk bool
+	splitPath := utils.ExtractPathParts(s)
+
+	for splitIdx, pathChunk := range splitPath {
+		if splitIdx == 0 {
+			workingPath = pathChunk
+			rootIdx := slices.IndexFunc(tree, func(ig ImportNode) bool {
+				return ig.path == workingPath
+			})
+
+			if rootIdx == -1 {
+				ig := NewImportNode(workingPath, 1, false)
+				currentGroup = &ig
+				tree = append(tree, ig)
+			} else {
+				currentGroup = &tree[rootIdx]
+				(*currentGroup).occurrences += 1
+			}
+		} else {
+			isLastChunk = splitIdx == len(splitPath)-1
+			workingPath += "/" + pathChunk
+			childIdx := slices.IndexFunc(*((*currentGroup).children), func(c ImportNode) bool {
+				return c.path == workingPath
+			})
+
+			if childIdx == -1 {
+				childIg := NewImportNode(workingPath, 1, isLastChunk)
+				*(*currentGroup).children = append(*(*currentGroup).children, childIg)
+				currentGroup = &childIg
+			} else {
+				currentGroup = &(*((*currentGroup).children))[childIdx]
+				(*currentGroup).occurrences += 1
+			}
 		}
 	}
+
+	return tree
+}
+
+func sortChildren(node ImportNode, listMap *[]ImportResult) {
+    var idx int
+
+    for _, child := range *(node.children) {
+        idx = slices.IndexFunc(*listMap, func(ir ImportResult) bool {
+            return ir.count == child.occurrences
+        })
+        if idx == -1 {
+            ir := ImportResult{count: child.occurrences, paths: &[]string{child.path}}
+            *listMap = append(*listMap, ir)
+        } else {
+            ir := (*listMap)[idx]
+            *(ir.paths) = append(*(ir.paths), child.path)
+        }
+       
+        if len(*(child.children)) > 0 {
+            sortChildren(child, listMap)
+        }
+    }
+}
+
+func sortByHighestOccurrences(tree []ImportNode) []ImportResult {
+    listMap := make([]ImportResult, 0, 5)
+
+    for _, root := range tree {
+        rootRes := ImportResult{
+            count: root.occurrences,
+            paths: &[]string{root.path},
+        }
+        listMap = append(listMap, rootRes)
+        sortChildren(root, &listMap)
+    }
+
+    return listMap
 }
 
 func main() {
-	inputFile := flag.String("f", "", "Name of the file to use for input")
-	flag.Parse()
+	var tree []ImportNode
+	var lines []string
 
-	var paths []string
-
-	if *inputFile != "" {
-		// TODO: read file for content
-		fmt.Println("Provided file name: ", *inputFile)
-	} else {
-		scanner := bufio.NewScanner(os.Stdin)
-		for scanner.Scan() {
-			s := scanner.Text()
-			processStatement(&paths, s)
-		}
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
 	}
 
-	occurrences := make(map[string]int)
-	var longest int
-	for _, p := range paths {
-		occurrences[p] += 1
-		if len(p) > longest {
-			longest = len(p)
-		}
+	slices.Sort(lines)
+	for _, line := range lines {
+		tree = processStatementAsImportNode(tree, line)
 	}
 
-	fmt.Println("Occurrences:")
-	for k, v := range occurrences {
-		fmt.Printf("  %-*s%d\n", longest+4, k, v)
-	}
+    resultMap := sortByHighestOccurrences(tree)
+    fmt.Println("Result Map:")
+    for _, v := range resultMap {
+        fmt.Printf(" :: count=%d paths=(%v)\n", v.count, *(v.paths))
+    }
 }
